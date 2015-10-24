@@ -67,7 +67,7 @@
  *  calculating associated timer0 OCR values
  *
  */
-bool toggle;
+char toggle;
 
 unsigned int ReadICR1(void)
 {
@@ -78,7 +78,7 @@ unsigned int ReadICR1(void)
     sreg = SREG;
 
     /* Disable interrupts */
-    _CLI();
+    cli();
 
     /* Read ICR1 into i */
     i = ICR1;
@@ -97,7 +97,7 @@ void WriteOCR2A(unsigned int val)
     sreg = SREG;
 
     /* Disable interrupts */
-    _CLI();
+    cli();
 
     /* Assign OCR2 val */
     OCR2A = val;
@@ -126,7 +126,7 @@ int main(void)
     // Set PB2 as input
     DDRB = 0x0;
 
-    toggle = false;
+    toggle = 0;
 
     // Overflow should occur at 122Hz
     // Divide clock by 256
@@ -187,15 +187,15 @@ int main(void)
 ISR (TIMER0_OVF_vect)
 {
     // action to be done every 250us
-    if (toggle)
+    if (toggle == 1)
     {
         PORTA = 0b00011010;
-        toggle = false;
+        toggle = 0;
     }
     else
     {
         PORTA = 0b00011010;
-        toggle = true;
+        toggle = 1;
     }
 }
 
