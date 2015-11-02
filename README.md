@@ -16,6 +16,23 @@ http://www.atmel.com/tools/ATMELAVRTOOLCHAINFORLINUX.aspx
 Unzip and update the AVRP parameter in the makefile accordingly
 
 
+## Loading
+```
+make burn
+```
+
+## Fuses
+ - efuse = 11111111 0xff
+ - hfuse = 00000101 0x05
+ - lfuse = 00000010 0x02
+
+```
+sudo avrdude -c jtag2isp -p t841 -F -U lfuse:w:0x02:m -U hfuse:w:0x05:m -U efuse:w:0xff:m
+```
+
+Notes: I misprogrammed hfuse to 0x65 which apparently can only be recovered in
+high voltage programming mode.  See pg 219 in datasheet.  Whoops.
+
 ## Manually Built Toolchain
  - http://www.atmel.com/webdoc/AVRLibcReferenceManual/install_tools_1install_avr_binutils.html
  - http://distribute.atmel.no/tools/opensource/Atmel-AVR-GNU-Toolchain/3.5.0/

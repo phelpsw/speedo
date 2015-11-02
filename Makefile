@@ -2,7 +2,7 @@
 all : main.hex main.lst
 
 PART=attiny441
-PROGPART=t441
+PROGPART=t841
 
 #You need a relatively new AVR toolchain to compile this.  It needs support for the 441.
 AVRP=~/projects/avr/avr8-gnu-toolchain-linux_x86_64/bin/avr-
@@ -22,7 +22,7 @@ main.lst : main.c
 	$(AVRP)gcc -c -g -Wa,-a,-ad $(CFLAGS) main.c > $@
 
 burn : main.hex
-	sudo avrdude -c usbtiny -p $(PROGPART) -U flash:w:main.hex
+	sudo avrdude -c jtag2isp -p $(PROGPART) -F -U flash:w:main.hex
 
 clean :
 	rm -f main.hex main.map main.elf
