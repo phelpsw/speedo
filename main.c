@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
 /**
  * The tach and speedo fire an interrupt on their rising edge.  The interrupt
@@ -111,22 +112,15 @@ void WriteOCR2A(unsigned int val)
 
 int main(void)
 {
-
     // TCCR0A - Compare Output Mode, non-PWM Mode 11.9.2 pg 85
     // (1 << COM0A1) | (0 << COM0A0) - Toggle OC0A on Compare Match
     //
     // Waveform Generation Mode - Normal pg 87
-    // (0 << WGM02) | (0 << WGM01) | (0 << WGM00) 
+    // (0 << WGM02) | (0 << WGM01) | (0 << WGM00)
 
-    // Set PA1, PA3 and PA4 as outputs
-    // Set PA7 as input
-    DDRA = 0b00011010;
-    PORTA = 0x0;
-
-    // Set PB2 as input
-    DDRB = 0x0;
-
-    toggle = 0;
+    DDRA |= _BV(DDA1);
+    DDRA |= _BV(DDA2);
+    DDRA |= _BV(DDA3);
 
     // Overflow should occur at 122Hz
     // Divide clock by 256
@@ -171,31 +165,22 @@ int main(void)
     TCCR2B |= _BV(CS20);
 
     // Configure Speedo Output Compare A (TOCC3 - Cruise) Compare B (TOCC0 - Speedo)
-    //TOCPMSA0 = (1 << TOCC0S1) | (1 << TOCC3S1);
-    //TOCPMCOE = (1 << TOCC0OE) | (1 << TOCC3OE);
+    TOCPMSA0 = (1 << TOCC0S1) | (1 << TOCC3S1);
+    TOCPMCOE = (1 << TOCC0OE) | (1 << TOCC3OE);
 
 
     // enable interrupts
     sei();
     while (1);
-    {
-        // we have a working timer
-    }
+
     return 0;
 }
 
 ISR (TIMER0_OVF_vect)
 {
-    // action to be done every 250us
-    if (toggle == 1)
-    {
-        PORTA = 0b00011010;
-        toggle = 0;
-    }
-    else
-    {
-        PORTA = 0b00011010;
-        toggle = 1;
-    }
+    //PORTA ^= (_BV(PA1) | _BV(PA2) | _BV(PA3));
+    //unsigned int val = ReadICR1();
+    //WriteOCR2A(val);
+    WriteOCR2A(100);
 }
 
