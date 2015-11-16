@@ -100,8 +100,27 @@ void WriteOCR2A(unsigned int val)
     /* Disable interrupts */
     cli();
 
-    /* Assign OCR2 val */
+    /* Assign OCR2A val */
     OCR2A = val;
+
+    /* Restore global interrupt flag */
+    SREG = sreg;
+
+    return;
+}
+
+void WriteOCR2B(unsigned int val)
+{
+    unsigned char sreg;
+
+    /* Save global interrupt flag */
+    sreg = SREG;
+
+    /* Disable interrupts */
+    cli();
+
+    /* Assign OCR2B val */
+    OCR2B = val;
 
     /* Restore global interrupt flag */
     SREG = sreg;
@@ -121,6 +140,8 @@ int main(void)
     DDRA |= _BV(DDA1);
     DDRA |= _BV(DDA2);
     DDRA |= _BV(DDA3);
+
+    DDRB = 0;
 
     // Overflow should occur at 122Hz
     // Divide clock by 256
@@ -168,6 +189,9 @@ int main(void)
     TOCPMSA0 = (1 << TOCC0S1) | (1 << TOCC3S1);
     TOCPMCOE = (1 << TOCC0OE) | (1 << TOCC3OE);
 
+    //unsigned int val = ReadICR1();
+    WriteOCR2A(1000);
+    WriteOCR2B(1000);
 
     // enable interrupts
     sei();
@@ -181,6 +205,5 @@ ISR (TIMER0_OVF_vect)
     //PORTA ^= (_BV(PA1) | _BV(PA2) | _BV(PA3));
     //unsigned int val = ReadICR1();
     //WriteOCR2A(val);
-    WriteOCR2A(100);
 }
 
