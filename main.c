@@ -17,8 +17,8 @@
  * PB2 - Tach in - PCINT10 or ICP2
  * PA7 - Speedo in - PCINT7 or ICP1
  * PA1 - Speedo out - TOCC0
- * PA3 - Tach out - TOCC2
- * PA4 - Cruise control out - TOCC3
+ * PA2 - Tach out - TOCC?
+ * PA3 - Cruise control out - TOCC?
  *
  *
  * Timer2 - 8MHz / 1024 -> 7812.5Hz
@@ -68,8 +68,6 @@
  *  calculating associated timer0 OCR values
  *
  */
-char toggle;
-
 unsigned int ReadICR1(void)
 {
     unsigned char sreg;
@@ -189,9 +187,11 @@ int main(void)
     TOCPMSA0 = (1 << TOCC0S1) | (1 << TOCC3S1);
     TOCPMCOE = (1 << TOCC0OE) | (1 << TOCC3OE);
 
-    //unsigned int val = ReadICR1();
-    WriteOCR2A(1000);
-    WriteOCR2B(1000);
+    // Output compare mode works, it seems like ReadICR1 may always return a 0
+    // enable noise rejection and solder wires to pad for test.
+    unsigned int val = ReadICR1();
+    WriteOCR2A(val);
+    WriteOCR2B(val);
 
     // enable interrupts
     sei();
@@ -205,5 +205,7 @@ ISR (TIMER0_OVF_vect)
     //PORTA ^= (_BV(PA1) | _BV(PA2) | _BV(PA3));
     //unsigned int val = ReadICR1();
     //WriteOCR2A(val);
+    //WriteOCR2B(val);
+    sei();
 }
 
