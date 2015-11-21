@@ -17,8 +17,8 @@
  * PB2 - Tach in - PCINT10 or ICP2
  * PA7 - Speedo in - PCINT7 or ICP1
  * PA1 - Speedo out - TOCC0
- * PA2 - Tach out - TOCC?
- * PA3 - Cruise control out - TOCC?
+ * PA2 - Tach out - TOCC1
+ * PA3 - Cruise control out - TOCC2
  *
  *
  * Timer2 - 8MHz / 1024 -> 7812.5Hz
@@ -135,11 +135,15 @@ int main(void)
     // Waveform Generation Mode - Normal pg 87
     // (0 << WGM02) | (0 << WGM01) | (0 << WGM00)
 
+
+    // Set PA1, PA2, and PA3 as outputs
     DDRA |= _BV(DDA1);
     DDRA |= _BV(DDA2);
     DDRA |= _BV(DDA3);
 
-    DDRB = 0;
+    // Set PA7 and PB2 as inputs
+    DDRA &= ~_BV(DDA7);
+    DDRB &= ~_BV(DDB2);
 
     // Overflow should occur at 122Hz
     // Divide clock by 256
@@ -155,18 +159,24 @@ int main(void)
      * Timer1 Configuration - Input Capture ICP1 - Speedo
      */
 
-    // TODO: Consider noise canceler
-
     // Enable rising edge detection
     TCCR1B |= _BV(ICES1);
 
+    // Enable noise canceler
+    //TCCR1B |= _BV(ICNC1);
+
     // Enable Clear Timer on Input Compare mode
-    TCCR1B |= _BV(WGM12);
-    TCCR1B |= _BV(WGM13);
+    //TCCR1B |= _BV(WGM12);
+    //TCCR1B |= _BV(WGM13);
 
     // Divide clock by 64
     TCCR1B |= _BV(CS11);
     TCCR1B |= _BV(CS10);
+
+    // Clear pending interrupts
+    TIFR1 = _BV(ICF1);
+
+    TIMSK1 |= _BV(ICIE1);
 
     /*
      * Timer2 Configuration - Output Compare Speedo / Cruise
@@ -184,15 +194,13 @@ int main(void)
     TCCR2B |= _BV(CS20);
 
     // Configure Speedo Output Compare A (TOCC3 - Cruise) Compare B (TOCC0 - Speedo)
-    TOCPMSA0 = (1 << TOCC0S1) | (1 << TOCC3S1);
-    TOCPMCOE = (1 << TOCC0OE) | (1 << TOCC3OE);
+    TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1) | _BV(TOCC2S1);
+    TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE) | _BV(TOCC2OE);
 
     // Output compare mode works, it seems like ReadICR1 may always return a 0
     // enable noise rejection and solder wires to pad for test.
-    unsigned int val = ReadICR1();
-    WriteOCR2A(val);
-    WriteOCR2B(val);
-
+    WriteOCR2A(100);
+    WriteOCR2B(100);
     // enable interrupts
     sei();
     while (1);
@@ -200,12 +208,30 @@ int main(void)
     return 0;
 }
 
+unsigned int period = 0;
 ISR (TIMER0_OVF_vect)
 {
     //PORTA ^= (_BV(PA1) | _BV(PA2) | _BV(PA3));
-    //unsigned int val = ReadICR1();
-    //WriteOCR2A(val);
-    //WriteOCR2B(val);
+    period = ReadICR1();
+    WriteOCR2A(period);
+    WriteOCR2B(period);
     sei();
+}
+
+ISR (TIMER1_CAPT_vect)
+{
+    /*
+    unsigned char sreg;
+    sreg = SREG;
+
+    cli();
+
+    TCNT1 = 0;
+
+    SREG = sreg;
+
+    sei();
+    */
+    TCNT1 = 0;
 }
 
