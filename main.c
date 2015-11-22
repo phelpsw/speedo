@@ -126,6 +126,7 @@ void WriteOCR2B(unsigned int val)
     return;
 }
 
+unsigned short period = 0;
 
 int main(void)
 {
@@ -153,7 +154,7 @@ int main(void)
     TIFR0 = _BV(TOV0);
 
     // Interrupt on overflow
-    TIMSK0 |= _BV(TOIE0);
+//    TIMSK0 |= _BV(TOIE0);
 
     /*
      * Timer1 Configuration - Input Capture ICP1 - Speedo
@@ -163,11 +164,7 @@ int main(void)
     TCCR1B |= _BV(ICES1);
 
     // Enable noise canceler
-    //TCCR1B |= _BV(ICNC1);
-
-    // Enable Clear Timer on Input Compare mode
-    //TCCR1B |= _BV(WGM12);
-    //TCCR1B |= _BV(WGM13);
+    TCCR1B |= _BV(ICNC1);
 
     // Divide clock by 64
     TCCR1B |= _BV(CS11);
@@ -176,6 +173,7 @@ int main(void)
     // Clear pending interrupts
     TIFR1 = _BV(ICF1);
 
+    // Enable Interrupt on input compare
     TIMSK1 |= _BV(ICIE1);
 
     /*
@@ -194,44 +192,34 @@ int main(void)
     TCCR2B |= _BV(CS20);
 
     // Configure Speedo Output Compare A (TOCC3 - Cruise) Compare B (TOCC0 - Speedo)
-    TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1) | _BV(TOCC2S1);
-    TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE) | _BV(TOCC2OE);
+    //TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1) | _BV(TOCC2S1);
+    //TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE) | _BV(TOCC2OE);
+    TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1);
+    TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE);
 
-    // Output compare mode works, it seems like ReadICR1 may always return a 0
-    // enable noise rejection and solder wires to pad for test.
-    WriteOCR2A(100);
-    WriteOCR2B(100);
-    // enable interrupts
     sei();
-    while (1);
+    while (1)
+    {
+        WriteOCR2A(period);
+        WriteOCR2B(period);
+        _delay_ms(10);
+        PORTA ^= _BV(PA3);
+    }
 
     return 0;
 }
-
-unsigned int period = 0;
+/*
 ISR (TIMER0_OVF_vect)
 {
-    //PORTA ^= (_BV(PA1) | _BV(PA2) | _BV(PA3));
-    period = ReadICR1();
-    WriteOCR2A(period);
-    WriteOCR2B(period);
-    sei();
+    PORTA ^= _BV(PA3);
+    OCR2A = period;
+    OCR2B = period;
 }
+*/
 
 ISR (TIMER1_CAPT_vect)
 {
-    /*
-    unsigned char sreg;
-    sreg = SREG;
-
-    cli();
-
-    TCNT1 = 0;
-
-    SREG = sreg;
-
-    sei();
-    */
+    period = ICR1;
     TCNT1 = 0;
 }
 
