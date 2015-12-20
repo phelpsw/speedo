@@ -126,7 +126,8 @@ void WriteOCR2B(unsigned int val)
     return;
 }
 
-unsigned short period = 0;
+volatile unsigned short period = 0;
+volatile unsigned short pass1 = 0;
 
 int main(void)
 {
@@ -200,14 +201,26 @@ int main(void)
     sei();
     while (1)
     {
-        WriteOCR2A(period);
-        WriteOCR2B(period);
+        //WriteOCR2A(period);
+        //WriteOCR2B(period);
+        //OCR2A = period;
+        //OCR2B = period;
+
+        // Enable input compare interrupt
+        if (pass1 == 0)
+        {
+            TIMSK1 |= _BV(ICIE1);
+            pass1 = 1;
+        }
         _delay_ms(10);
+
+        // TODO: make sure this isn't being probed
         PORTA ^= _BV(PA3);
     }
 
     return 0;
 }
+
 /*
 ISR (TIMER0_OVF_vect)
 {
@@ -219,7 +232,22 @@ ISR (TIMER0_OVF_vect)
 
 ISR (TIMER1_CAPT_vect)
 {
-    period = ICR1;
+    if (pass1 == 2)
+    {
+        unsigned short val = ICR1;
+        OCR2A = val;
+        OCR2B = val;
+
+        // Disable input capture for now
+        pass1 = 0;
+
+        TIFR1 = _BV(ICF1);
+        TIMSK1 &= ~_BV(ICIE1);
+    }
+    else if (pass1 == 1)
+    {
+        pass1 = 2;
+    }
     TCNT1 = 0;
 }
 

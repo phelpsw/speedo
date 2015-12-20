@@ -86,3 +86,8 @@ make install
 avrduderc with support for attiny841
  - http://www.ve7xen.com/blog/2014/03/07/programming-the-attiny841-with-avrdude/
  - http://www.avrfreaks.net/comment/1015011#comment-1015011
+
+## References
+ - http://www.embedds.com/programming-16-bit-timer-on-atmega328/
+ - http://www.eevblog.com/forum/beginners/how-to-measure-frequency-using-avr/
+ - http://electronics.stackexchange.com/questions/2811/measuring-0-1mhz-0-25hz-resolution-squarewave-using-an-mcu
