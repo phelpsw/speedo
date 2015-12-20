@@ -68,76 +68,11 @@
  *  calculating associated timer0 OCR values
  *
  */
-unsigned int ReadICR1(void)
-{
-    unsigned char sreg;
-    unsigned int i;
 
-    /* Save global interrupt flag */
-    sreg = SREG;
-
-    /* Disable interrupts */
-    cli();
-
-    /* Read ICR1 into i */
-    i = ICR1;
-
-    /* Restore global interrupt flag */
-    SREG = sreg;
-
-    return i;
-}
-
-void WriteOCR2A(unsigned int val)
-{
-    unsigned char sreg;
-
-    /* Save global interrupt flag */
-    sreg = SREG;
-
-    /* Disable interrupts */
-    cli();
-
-    /* Assign OCR2A val */
-    OCR2A = val;
-
-    /* Restore global interrupt flag */
-    SREG = sreg;
-
-    return;
-}
-
-void WriteOCR2B(unsigned int val)
-{
-    unsigned char sreg;
-
-    /* Save global interrupt flag */
-    sreg = SREG;
-
-    /* Disable interrupts */
-    cli();
-
-    /* Assign OCR2B val */
-    OCR2B = val;
-
-    /* Restore global interrupt flag */
-    SREG = sreg;
-
-    return;
-}
-
-volatile unsigned short period = 0;
 volatile unsigned short pass1 = 0;
 
 int main(void)
 {
-    // TCCR0A - Compare Output Mode, non-PWM Mode 11.9.2 pg 85
-    // (1 << COM0A1) | (0 << COM0A0) - Toggle OC0A on Compare Match
-    //
-    // Waveform Generation Mode - Normal pg 87
-    // (0 << WGM02) | (0 << WGM01) | (0 << WGM00)
-
-
     // Set PA1, PA2, and PA3 as outputs
     DDRA |= _BV(DDA1);
     DDRA |= _BV(DDA2);
@@ -146,16 +81,6 @@ int main(void)
     // Set PA7 and PB2 as inputs
     DDRA &= ~_BV(DDA7);
     DDRB &= ~_BV(DDB2);
-
-    // Overflow should occur at 122Hz
-    // Divide clock by 256
-    TCCR0B |= _BV(CS02);
-
-    // Clear TOV0 / clear pending interrupts
-    TIFR0 = _BV(TOV0);
-
-    // Interrupt on overflow
-//    TIMSK0 |= _BV(TOIE0);
 
     /*
      * Timer1 Configuration - Input Capture ICP1 - Speedo
@@ -201,53 +126,54 @@ int main(void)
     sei();
     while (1)
     {
-        //WriteOCR2A(period);
-        //WriteOCR2B(period);
-        //OCR2A = period;
-        //OCR2B = period;
-
-        // Enable input compare interrupt
+        // Enable input compare if an entire frequency estimation cycle has
+        // already been completed.
         if (pass1 == 0)
         {
             TIMSK1 |= _BV(ICIE1);
             pass1 = 1;
         }
         _delay_ms(10);
-
-        // TODO: make sure this isn't being probed
-        PORTA ^= _BV(PA3);
     }
 
     return 0;
 }
 
-/*
-ISR (TIMER0_OVF_vect)
-{
-    PORTA ^= _BV(PA3);
-    OCR2A = period;
-    OCR2B = period;
-}
-*/
-
 ISR (TIMER1_CAPT_vect)
 {
+    // Save the status register and disable interrupts
+    unsigned char sreg = SREG;
+    cli();
+
     if (pass1 == 2)
     {
         unsigned short val = ICR1;
-        OCR2A = val;
-        OCR2B = val;
 
-        // Disable input capture for now
+        // Halve the period as we measured from rising edge to rising edge
+        // but the output register is a half period.
+        OCR2A = val >> 1;
+        OCR2B = val >> 1;
+
+        // Disable input capture
         pass1 = 0;
 
+        // Clear the current interrupt flag and disable this interrupt
         TIFR1 = _BV(ICF1);
         TIMSK1 &= ~_BV(ICIE1);
     }
     else if (pass1 == 1)
     {
+        // Ignore the first interrupt which hasn't allowed the timer to
+        // increment fully to incorporate the entire period of the measured
+        // frequency.
         pass1 = 2;
     }
+
+    // Reset Timer1 counter
     TCNT1 = 0;
+
+    // Restore Status Register and re-enable interrupts
+    SREG = sreg;
+    sei();
 }
 
