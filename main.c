@@ -94,7 +94,7 @@
 
 int main(void)
 {
-    // Set PA1, PA2, and PA3 as outputs
+    // Set PA1 and PA2 as outputs
     DDRA |= _BV(DDA1); // TOCC0
     DDRA |= _BV(DDA2); // TOCC1
     //DDRA |= _BV(DDA3); // TOCC2
@@ -109,19 +109,18 @@ int main(void)
      * Counter1 Configuration
      */
 
-    // External rising edge clock from pin T1
-    TCCR1B |= _BV(CS12);
-    TCCR1B |= _BV(CS11);
-    TCCR1B |= _BV(CS10);
+    // External rising edge clock from pin T0
+    TCCR0B |= _BV(CS12);
+    TCCR0B |= _BV(CS11);
+    TCCR0B |= _BV(CS10);
 
     /*
      * Timer2 Configuration - Output Compare based pin toggle
      */
 
     // Toggle OCR2A/B on Compare Match
-    // TODO: only one
-    TCCR2A |= _BV(COM2A0);
-    TCCR2A |= _BV(COM2B0);
+    TCCR2A |= _BV(COM2A0); // TOCC0 / PA1
+    TCCR2A |= _BV(COM2B0); // TOCC1 / PA2
 
     // Enable Clear Timer on Output Compare mode
     TCCR2B |= _BV(WGM22);
@@ -133,21 +132,19 @@ int main(void)
     TCCR2B |= _BV(CS20);
     const uint32_t timer2_clock = 8000000UL / 64UL;
 
-    // Configure Speedo Output Compare A (TOCC3 - Cruise) Compare B (TOCC0 - Speedo)
-    //TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1) | _BV(TOCC2S1);
-    //TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE) | _BV(TOCC2OE);
+    // Configure Output Compare A and B for TOCC0 and TOCC1 output
     TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1);
     TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE);
 
     // Zero counters to begin
-    TCNT1 = 0;
+    TCNT0 = 0;
     TCNT2 = 0;
 
     while (1)
     {
-        // Read counter1 value and zero it out
-        uint32_t val = (uint32_t)TCNT1;
-        TCNT1 = 0;
+        // Read counter0 value and zero it out
+        uint32_t val = (uint32_t)TCNT0;
+        TCNT0 = 0;
 
         // Counts per second assuming 10Hz cycle
         val *= 10;
@@ -164,16 +161,17 @@ int main(void)
 
         // If output_counts is less than the current counter value, the counter
         // is forced to roll-over before it will result in a toggle.  To prevent
-        // this, reset the counter.  Resetting the counter will not correctly
-        // invert the pin however
+        // this, reset the counter.
         if (TCNT2 >= output_counts)
         {
             TCNT2 = 0;
-            // TODO Figure out how to invert TOCC pin manually
+
+            // Force output compare to trigger manually
+            TCCR2C |= _BV(FOC2A);
+            TCCR2C |= _BV(FOC2B);
         }
 
         // Set the output count period
-        // TODO: only use 1 of the two
         const uint16_t reg_val = (uint16_t)(output_counts >> 1);
         OCR2A = reg_val;
         OCR2B = reg_val;
