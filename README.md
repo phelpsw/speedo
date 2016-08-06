@@ -1,8 +1,8 @@
+# Build and Load Procedure
 
-## Dependencies
- - avrdude 6.0.1
-  - It seems this works with the provided .avrduderc file for 441/841 support
- - libftdi1 0.20-1ubuntu1
+Install prebuilt toolchain on linux to build and then use avrstudio on windows
+to program the tiny441.
+
 
 ## Prebuilt Toolchain
 
@@ -17,23 +17,20 @@ Unzip and update the AVRP parameter in the makefile accordingly
 
 
 ## Loading
-```
-make burn
-```
+
+Because avrdude doesn't support the tiny441, we are unfortunately forced to use
+avrstudio.
 
 ## Fuses
  - efuse = 11111111 0xff
  - hfuse = 00000101 0x05
  - lfuse = 00000010 0x02
 
-```
-sudo avrdude -c jtag2isp -p t841 -F -U lfuse:w:0x02:m -U hfuse:w:0x05:m -U efuse:w:0xff:m
-```
 
-Notes: I misprogrammed hfuse to 0x65 which apparently can only be recovered in
-high voltage programming mode.  See pg 219 in datasheet.  Whoops.
+# Manually Built Toolchain
+I did not get this to work, instead used prebuilt toolchain above.  Notes for
+reference.
 
-## Manually Built Toolchain
  - http://www.atmel.com/webdoc/AVRLibcReferenceManual/install_tools_1install_avr_binutils.html
  - http://distribute.atmel.no/tools/opensource/Atmel-AVR-GNU-Toolchain/3.5.0/
 
@@ -83,6 +80,8 @@ make install
 
 
 ### avrdude attiny441 support
+This does not work as of May 2016, notes for reference however.
+
 avrduderc with support for attiny841
  - http://www.ve7xen.com/blog/2014/03/07/programming-the-attiny841-with-avrdude/
  - http://www.avrfreaks.net/comment/1015011#comment-1015011

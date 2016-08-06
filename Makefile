@@ -21,8 +21,9 @@ main.elf : main.c
 main.lst : main.c
 	$(AVRP)gcc -c -g -Wa,-a,-ad $(CFLAGS) main.c > $@
 
-burn : main.hex
-	sudo avrdude -c jtag2isp -p $(PROGPART) -F -U flash:w:main.hex
+# This does not with with the tiny441, avrdude doesn't yet support it.
+#burn : main.hex
+#	sudo avrdude -c jtag2isp -p $(PROGPART) -F -U flash:w:main.hex
 
 clean :
 	rm -f main.hex main.map main.elf

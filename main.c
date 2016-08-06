@@ -42,8 +42,48 @@
  *
  */
 
+#define MULTIPLIER 53
+#define DIVIDER 10
+#define WINDOW_AVG_SIZE 5
+
+uint8_t buffer[WINDOW_AVG_SIZE];
+uint8_t buffer_position;
+uint16_t total;
+
+void init_average_buffer()
+{
+    int i = 0;
+    for (i = 0; i < WINDOW_AVG_SIZE; i++)
+        buffer[i] = 0;
+    buffer_position = 0;
+    total = 0;
+}
+
+uint8_t average(uint8_t new)
+{
+    // At buffer_position index record current (oldest) value
+    uint8_t old = buffer[buffer_position];
+
+    // Update this location with newest value
+    buffer[buffer_position] = new;
+
+    // Update running total of values in the buffer.
+    total = total - old + new;
+
+    // Update index to the next oldest position in buffer
+    buffer_position++;
+    buffer_position %= WINDOW_AVG_SIZE;
+
+    // Return the average value in the buffer.
+    return (uint8_t)(total / WINDOW_AVG_SIZE);
+}
+
+
 int main(void)
 {
+    // Initialize Buffer
+    init_average_buffer();
+
     // Set PA1 and PA2 as outputs
     DDRA |= _BV(DDA1); // TOCC0
     DDRA |= _BV(DDA2); // TOCC1
@@ -89,15 +129,15 @@ int main(void)
     while (1)
     {
         // Read counter0 value and zero it out
-        uint32_t val = (uint32_t)TCNT0;
+        uint32_t val = (uint32_t)average(TCNT0);
         TCNT0 = 0;
 
         // Counts per second assuming 10Hz cycle
         val *= 10;
 
         // Calculate new output frequency
-        val *= 53;
-        val /= 10;
+        val *= MULTIPLIER;
+        val /= DIVIDER;
 
         // Calculate ticks at Timer2 clock rate
         uint32_t output_counts = 65535;
