@@ -46,7 +46,7 @@
 #define DIVIDER 10
 #define WINDOW_AVG_SIZE 5
 
-uint8_t buffer[WINDOW_AVG_SIZE];
+uint16_t buffer[WINDOW_AVG_SIZE];
 uint8_t buffer_position;
 uint16_t total;
 
@@ -64,10 +64,10 @@ void init_average_buffer()
     total = 0;
 }
 
-uint8_t average(uint8_t new)
+uint16_t average(uint16_t new)
 {
     // At buffer_position index record current (oldest) value
-    uint8_t old = buffer[buffer_position];
+    uint16_t old = buffer[buffer_position];
 
     // Update this location with newest value
     buffer[buffer_position] = new;
@@ -80,7 +80,7 @@ uint8_t average(uint8_t new)
     buffer_position %= WINDOW_AVG_SIZE;
 
     // Return the average value in the buffer.
-    return (uint8_t)round_div(total, WINDOW_AVG_SIZE);
+    return (uint16_t)round_div(total, WINDOW_AVG_SIZE);
 }
 
 
@@ -134,21 +134,22 @@ int main(void)
     while (1)
     {
         // Read counter0 value and zero it out
-        uint32_t val = (uint32_t)average(TCNT0);
+        uint16_t val = (uint16_t)TCNT0;
         TCNT0 = 0;
 
         // Counts per second assuming 10Hz cycle
         val *= 10;
 
+        // Average the observed frequency
+        val = average(val);
+
         // Calculate new output frequency
-        val *= MULTIPLIER;
-        val = round_div(val, DIVIDER);
+        uint32_t trg_freq = round_div((uint32_t)val * MULTIPLIER, DIVIDER);
 
         // Calculate ticks at Timer2 clock rate
         uint32_t output_counts = 65535;
-        if (val > 0)
-            output_counts = round_div(timer2_clock, val);
-
+        if (trg_freq > 0)
+            output_counts = round_div(timer2_clock, trg_freq);
 
         // If output_counts is less than the current counter value, the counter
         // is forced to roll-over before it will result in a toggle.  To prevent
