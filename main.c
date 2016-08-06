@@ -53,9 +53,23 @@
  *
  * Using output compare in normal mode is not recomended!!
  *
+ * Low frequency reproduction is important, Speedometer 18Hz input is ~6mph
+ * Input Frequencies
+ * - Speedometer 0 - 450Hz
+ * - Tachometer 0 - 565Hz
+ *
+ * Multipliers
+ * - Speedometer 5 or 53/10
+ * - Tachometer 4/3
+ *
+ * Output Frequencies
+ * - Speedometer 0 - 3000Hz
+ * - Tachometer 0 - 600Hz
  *
  *
- *
+ * Without filtering, minimum resolution is set by update rate.  So 10Hz update
+ * 10 * (6.28 / 18.86) = 3.3mph
+ * 10 * (10 / 18.86) = 5.3kph
  *
  * Plan:
  *
@@ -69,53 +83,55 @@
  *
  */
 
-volatile unsigned short pass1 = 0;
+
+/*
+ * Step 1 At 10Hz Read counter value
+ * Step 2 Add counter value to 10 slot circular buffer which pops one value off
+ *        the end, subtracts it from a total, then adds the new value on.
+ * Step 3 If counter value is > ~10, use the counter directly, otherwise use
+ *        rolling average to approximate speed
+ */
 
 int main(void)
 {
     // Set PA1, PA2, and PA3 as outputs
-    DDRA |= _BV(DDA1);
-    DDRA |= _BV(DDA2);
-    DDRA |= _BV(DDA3);
+    DDRA |= _BV(DDA1); // TOCC0
+    DDRA |= _BV(DDA2); // TOCC1
+    //DDRA |= _BV(DDA3); // TOCC2
 
-    // Set PA7 and PB2 as inputs
-    DDRA &= ~_BV(DDA7);
-    DDRB &= ~_BV(DDB2);
+    // Set PA7, PB2, PA4, PA3 as inputs
+    //DDRA &= ~_BV(DDA7);
+    //DDRB &= ~_BV(DDB2);
+    DDRA &= ~_BV(DDA3); // T0
+    DDRA &= ~_BV(DDA4); // T1
 
     /*
-     * Timer1 Configuration - Input Capture ICP1 - Speedo
+     * Counter1 Configuration
      */
 
-    // Enable rising edge detection
-    TCCR1B |= _BV(ICES1);
-
-    // Enable noise canceler
-    TCCR1B |= _BV(ICNC1);
-
-    // Divide clock by 64
+    // External rising edge clock from pin T1
+    TCCR1B |= _BV(CS12);
     TCCR1B |= _BV(CS11);
     TCCR1B |= _BV(CS10);
 
-    // Clear pending interrupts
-    TIFR1 = _BV(ICF1);
-
-    // Enable Interrupt on input compare
-    TIMSK1 |= _BV(ICIE1);
-
     /*
-     * Timer2 Configuration - Output Compare Speedo / Cruise
+     * Timer2 Configuration - Output Compare based pin toggle
      */
 
     // Toggle OCR2A/B on Compare Match
+    // TODO: only one
     TCCR2A |= _BV(COM2A0);
     TCCR2A |= _BV(COM2B0);
 
     // Enable Clear Timer on Output Compare mode
     TCCR2B |= _BV(WGM22);
 
-    // Divide clock by 64
+    // Divide clock by 64, this gives us 65535/(8e6/64.) = 0.52sec before a
+    // rollover occurs.  Providing us the maximum output resolution given a
+    // 10Hz control cycle.
     TCCR2B |= _BV(CS21);
     TCCR2B |= _BV(CS20);
+    const uint32_t timer2_clock = 8000000UL / 64UL;
 
     // Configure Speedo Output Compare A (TOCC3 - Cruise) Compare B (TOCC0 - Speedo)
     //TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1) | _BV(TOCC2S1);
@@ -123,57 +139,48 @@ int main(void)
     TOCPMSA0 = _BV(TOCC0S1) | _BV(TOCC1S1);
     TOCPMCOE = _BV(TOCC0OE) | _BV(TOCC1OE);
 
-    sei();
+    // Zero counters to begin
+    TCNT1 = 0;
+    TCNT2 = 0;
+
     while (1)
     {
-        // Enable input compare if an entire frequency estimation cycle has
-        // already been completed.
-        if (pass1 == 0)
+        // Read counter1 value and zero it out
+        uint32_t val = (uint32_t)TCNT1;
+        TCNT1 = 0;
+
+        // Counts per second assuming 10Hz cycle
+        val *= 10;
+
+        // Calculate new output frequency
+        val *= 53;
+        val /= 10;
+
+        // Calculate ticks at Timer2 clock rate
+        uint32_t output_counts = 65535;
+        if (val > 0)
+            output_counts = timer2_clock / val;
+
+
+        // If output_counts is less than the current counter value, the counter
+        // is forced to roll-over before it will result in a toggle.  To prevent
+        // this, reset the counter.  Resetting the counter will not correctly
+        // invert the pin however
+        if (TCNT2 >= output_counts)
         {
-            TIMSK1 |= _BV(ICIE1);
-            pass1 = 1;
+            TCNT2 = 0;
+            // TODO Figure out how to invert TOCC pin manually
         }
-        _delay_ms(10);
+
+        // Set the output count period
+        // TODO: only use 1 of the two
+        const uint16_t reg_val = (uint16_t)(output_counts >> 1);
+        OCR2A = reg_val;
+        OCR2B = reg_val;
+
+        _delay_ms(100);
     }
 
     return 0;
-}
-
-ISR (TIMER1_CAPT_vect)
-{
-    // Save the status register and disable interrupts
-    unsigned char sreg = SREG;
-    cli();
-
-    if (pass1 == 2)
-    {
-        unsigned short val = ICR1;
-
-        // Halve the period as we measured from rising edge to rising edge
-        // but the output register is a half period.
-        OCR2A = val >> 1;
-        OCR2B = val >> 1;
-
-        // Disable input capture
-        pass1 = 0;
-
-        // Clear the current interrupt flag and disable this interrupt
-        TIFR1 = _BV(ICF1);
-        TIMSK1 &= ~_BV(ICIE1);
-    }
-    else if (pass1 == 1)
-    {
-        // Ignore the first interrupt which hasn't allowed the timer to
-        // increment fully to incorporate the entire period of the measured
-        // frequency.
-        pass1 = 2;
-    }
-
-    // Reset Timer1 counter
-    TCNT1 = 0;
-
-    // Restore Status Register and re-enable interrupts
-    SREG = sreg;
-    sei();
 }
 
