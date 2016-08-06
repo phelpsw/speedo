@@ -50,6 +50,11 @@ uint8_t buffer[WINDOW_AVG_SIZE];
 uint8_t buffer_position;
 uint16_t total;
 
+uint32_t round_div(uint32_t dividend, uint32_t divisor)
+{
+    return (dividend + (divisor / 2)) / divisor;
+}
+
 void init_average_buffer()
 {
     int i = 0;
@@ -75,7 +80,7 @@ uint8_t average(uint8_t new)
     buffer_position %= WINDOW_AVG_SIZE;
 
     // Return the average value in the buffer.
-    return (uint8_t)(total / WINDOW_AVG_SIZE);
+    return (uint8_t)round_div(total, WINDOW_AVG_SIZE);
 }
 
 
@@ -137,12 +142,12 @@ int main(void)
 
         // Calculate new output frequency
         val *= MULTIPLIER;
-        val /= DIVIDER;
+        val = round_div(val, DIVIDER);
 
         // Calculate ticks at Timer2 clock rate
         uint32_t output_counts = 65535;
         if (val > 0)
-            output_counts = timer2_clock / val;
+            output_counts = round_div(timer2_clock, val);
 
 
         // If output_counts is less than the current counter value, the counter
